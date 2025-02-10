@@ -5,3 +5,5 @@ pydantic-settings
 gspread
 oauth2client
 python-dotenv
+email-validator
+pydantic[email]
