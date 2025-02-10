@@ -8,21 +8,9 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Add project root to Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-# Log environment variables for debugging
-logger.debug("Environment Variables:")
-for key, value in os.environ.items():
-    if 'KEY' in key or 'SECRET' in key:
-        logger.debug(f"{key}: [REDACTED]")
-    else:
-        logger.debug(f"{key}: {value}")
-
 try:
     from api.sheets import GoogleSheetService
     from api.models import ProjectSubmission
-
     import uvicorn
     from fastapi import FastAPI, HTTPException
     from fastapi.middleware.cors import CORSMiddleware
@@ -40,12 +28,9 @@ try:
         allow_headers=["*"],
     )
 
-    try:
-        sheets_service = GoogleSheetService()
-        logger.info("GoogleSheetService initialized successfully")
-    except Exception as init_error:
-        logger.error(f"Failed to initialize GoogleSheetService: {init_error}")
-        logger.error(traceback.format_exc())
+    # Initialize GoogleSheetService globally
+    sheets_service = GoogleSheetService()
+    logger.info("GoogleSheetService initialized successfully")
 
     @app.post("/api/submit")
     async def submit_project(submission: ProjectSubmission):
