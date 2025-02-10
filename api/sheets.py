@@ -13,31 +13,38 @@ class GoogleSheetService:
             'https://spreadsheets.google.com/feeds',
             'https://www.googleapis.com/auth/drive'
         ]
-        self._setup_client()
+        # Don't initialize connection in constructor
+        self.client = None
+        self.worksheet = None
         
-    def _setup_client(self):
-        credentials_dict = {
-            "type": os.getenv("GOOGLE_ACCOUNT_TYPE"),
-            "project_id": os.getenv("GOOGLE_PROJECT_ID"),
-            "private_key_id": os.getenv("GOOGLE_PRIVATE_KEY_ID"),
-            "private_key": os.getenv("GOOGLE_PRIVATE_KEY").replace('\\n', '\n'),
-            "client_email": os.getenv("GOOGLE_CLIENT_EMAIL"),
-            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-            "auth_uri": os.getenv("GOOGLE_AUTH_URI"),
-            "token_uri": os.getenv("GOOGLE_TOKEN_URI"),
-            "auth_provider_x509_cert_url": os.getenv("GOOGLE_AUTH_PROVIDER_CERT_URL"),
-            "client_x509_cert_url": os.getenv("GOOGLE_CLIENT_CERT_URL")
-        }
-        
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, self.scope)
-        self.client = gspread.authorize(creds)
-        self.worksheet = self.client.open_by_key(os.getenv("SHEET_ID")).worksheet(os.getenv("SHEET_NAME", "Submissions"))
-
-    def verify_connection(self):
-        return True
+    def _get_connection(self):
+        if self.client is None:
+            try:
+                credentials_dict = {
+                    "type": "service_account",
+                    "project_id": os.environ.get("GOOGLE_PROJECT_ID"),
+                    "private_key_id": os.environ.get("GOOGLE_PRIVATE_KEY_ID"),
+                    "private_key": os.environ.get("GOOGLE_PRIVATE_KEY").replace('\\n', '\n'),
+                    "client_email": os.environ.get("GOOGLE_CLIENT_EMAIL"),
+                    "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                    "client_x509_cert_url": os.environ.get("GOOGLE_CLIENT_CERT_URL")
+                }
+                
+                creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials_dict, self.scope)
+                self.client = gspread.authorize(creds)
+            except Exception as e:
+                print(f"Connection error: {str(e)}")
+                raise e
 
     def append_submission(self, data: dict):
         try:
+            self._get_connection()
+            sheet = self.client.open_by_key(os.environ.get("SHEET_ID"))
+            worksheet = sheet.worksheet(os.environ.get("SHEET_NAME", "Submissions"))
+            
             row = [
                 data["name"],
                 data["email"],
@@ -46,7 +53,9 @@ class GoogleSheetService:
                 str(data["twitter_url"]),
                 data.get("submission_date", "")
             ]
-            self.worksheet.append_row(row, value_input_option='RAW')
+            
+            worksheet.append_row(row, value_input_option='RAW')
             return True
-        except:
-            return False
+        except Exception as e:
+            print(f"Submission error: {str(e)}")
+            raise e
