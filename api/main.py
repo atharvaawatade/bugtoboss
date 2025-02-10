@@ -2,6 +2,8 @@ import os
 import sys
 import logging
 import traceback
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, 
@@ -15,10 +17,19 @@ try:
     from fastapi import FastAPI, HTTPException
     from fastapi.middleware.cors import CORSMiddleware
     from datetime import datetime
+    from fastapi.responses import FileResponse
 
     logger.info("Imports successful")
 
     app = FastAPI(title="BugToBoss Submission API")
+
+    # Add static files mounting
+    static_dir = Path(__file__).parent.parent / "static"
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+    @app.get('/favicon.png')
+    async def favicon():
+        return FileResponse(str(static_dir / 'favicon.png'))
 
     app.add_middleware(
         CORSMiddleware,
