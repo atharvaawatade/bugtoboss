@@ -1,6 +1,11 @@
 import os
 import json
+import gspread
+import logging
+import traceback
 from oauth2client.service_account import ServiceAccountCredentials
+
+logger = logging.getLogger(__name__)
 
 class GoogleSheetService:
     def __init__(self):
@@ -18,7 +23,7 @@ class GoogleSheetService:
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
                 "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{os.getenv('GOOGLE_CLIENT_EMAIL')}"
+                "client_x509_cert_url": os.getenv("GOOGLE_CLIENT_CERT_URL")
             }
 
             # Check if private key is present
@@ -26,11 +31,16 @@ class GoogleSheetService:
                 raise ValueError("Private key is missing from environment variables!")
 
             # Load credentials
+            scope = ['https://spreadsheets.google.com/feeds',
+                    'https://www.googleapis.com/auth/drive']
+            
             self.creds = ServiceAccountCredentials.from_json_keyfile_dict(
                 credentials_json,
-                scopes=['https://www.googleapis.com/auth/spreadsheets']
+                scope
             )
-
+            
+            # Initialize gspread client
+            self.client = gspread.authorize(self.creds)
             print("GoogleSheetService initialized successfully!")
 
         except Exception as e:
