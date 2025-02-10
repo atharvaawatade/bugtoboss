@@ -1,6 +1,7 @@
 import os
 import logging
 import traceback
+import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -15,8 +16,12 @@ class GoogleSheetService:
                 'https://www.googleapis.com/auth/drive'
             ]
             
-            # Log credential retrieval process
-            logger.debug("Retrieving credentials from environment")
+            # Log all environment variables for debugging
+            logger.debug("Environment Variables:")
+            for key, value in os.environ.items():
+                logger.debug(f"{key}: {'[REDACTED]' if 'KEY' in key or 'SECRET' in key else value}")
+            
+            # Try to parse credentials from environment variables
             credentials_dict = {
                 "type": os.getenv("GOOGLE_ACCOUNT_TYPE"),
                 "project_id": os.getenv("GOOGLE_PROJECT_ID"),
@@ -30,11 +35,24 @@ class GoogleSheetService:
                 "client_x509_cert_url": os.getenv("GOOGLE_CLIENT_CERT_URL")
             }
             
-            logger.debug("Attempting to create service account credentials")
+            # Remove None values
+            credentials_dict = {k: v for k, v in credentials_dict.items() if v is not None}
+            
+            # Log the credentials dictionary (without sensitive info)
+            safe_creds = {k: '***' if 'key' in k.lower() else v for k, v in credentials_dict.items()}
+            logger.debug(f"Parsed Credentials: {safe_creds}")
+            
+            # Validate required keys
+            required_keys = ["private_key", "client_email", "client_id"]
+            missing_keys = [key for key in required_keys if not credentials_dict.get(key)]
+            
+            if missing_keys:
+                raise ValueError(f"Missing required credentials: {missing_keys}")
+            
+            # Create credentials
             creds = ServiceAccountCredentials.from_json_keyfile_dict(
                 credentials_dict, self.scope)
             
-            logger.debug("Authorizing with gspread")
             self.client = gspread.authorize(creds)
             logger.info("Google Sheets client created successfully")
             
