@@ -1,10 +1,9 @@
-fastapi
-uvicorn
-pydantic
-pydantic-settings
-gspread
-oauth2client
-python-dotenv
+fastapi==0.104.1
+uvicorn==0.24.0
+pydantic==2.5.2
+pydantic[email]==2.5.2
+python-dotenv==1.0.0
+oauth2client==4.1.3
+gspread==5.12.0
 email-validator
-pydantic[email]
 python-multipart
