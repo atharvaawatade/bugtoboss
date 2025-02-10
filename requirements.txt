@@ -7,3 +7,4 @@ oauth2client
 python-dotenv
 email-validator
 pydantic[email]
+python-multipart
