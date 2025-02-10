@@ -1,45 +1,60 @@
 import os
-import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from pathlib import Path
 
 class GoogleSheetService:
+    def __init__(self):
+        self.scope = [
+            'https://spreadsheets.google.com/feeds',
+            'https://www.googleapis.com/auth/drive'
+        ]
+        self.client = self._get_client()
+        self.worksheet = None
+       
+    def _get_client(self):
+        try:
+            # Use environment variables for credentials
+            credentials_dict = {
+                "type": os.getenv("GOOGLE_ACCOUNT_TYPE"),
+                "project_id": os.getenv("GOOGLE_PROJECT_ID"),
+                "private_key_id": os.getenv("GOOGLE_PRIVATE_KEY_ID"),
+                "private_key": os.getenv("GOOGLE_PRIVATE_KEY").replace('\\n', '\n'),
+                "client_email": os.getenv("GOOGLE_CLIENT_EMAIL"),
+                "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+                "auth_uri": os.getenv("GOOGLE_AUTH_URI"),
+                "token_uri": os.getenv("GOOGLE_TOKEN_URI"),
+                "auth_provider_x509_cert_url": os.getenv("GOOGLE_AUTH_PROVIDER_CERT_URL"),
+                "client_x509_cert_url": os.getenv("GOOGLE_CLIENT_CERT_URL")
+            }
+            
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(
+                credentials_dict, self.scope)
+            return gspread.authorize(creds)
+        except Exception as e:
+            print(f"Client creation error: {e}")
+            return None
+
+    def verify_connection(self):
+        try:
+            if not self.client:
+                return False
+            
+            sheet_id = os.getenv("SHEET_ID")
+            sheet_name = os.getenv("SHEET_NAME", "Submissions")
+            
+            spreadsheet = self.client.open_by_key(sheet_id)
+            self.worksheet = spreadsheet.worksheet(sheet_name)
+            return True
+        except Exception as e:
+            print(f"Connection verification error: {e}")
+            return False
+
     def append_submission(self, data: dict):
         try:
-            # Setup credentials
-            scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+            if not self.verify_connection():
+                return False
             
-            # Get private key from environment
-            private_key = os.environ.get("GOOGLE_PRIVATE_KEY", "")
-            if "\\n" in private_key:
-                private_key = private_key.replace("\\n", "\n")
-            
-            creds_dict = {
-                "type": "service_account",
-                "project_id": os.environ.get("GOOGLE_PROJECT_ID"),
-                "private_key_id": os.environ.get("GOOGLE_PRIVATE_KEY_ID"),
-                "private_key": private_key,
-                "client_email": os.environ.get("GOOGLE_CLIENT_EMAIL"),
-                "client_id": os.environ.get("GOOGLE_CLIENT_ID"),
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token",
-                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                "client_x509_cert_url": os.environ.get("GOOGLE_CLIENT_CERT_URL")
-            }
-
-            # Create credentials and client
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-            client = gspread.authorize(creds)
-            
-            # Access the sheet
-            sheet_id = os.environ.get("SHEET_ID")
-            if not sheet_id:
-                raise ValueError("SHEET_ID environment variable is missing")
-                
-            sheet = client.open_by_key(sheet_id)
-            worksheet = sheet.worksheet(os.environ.get("SHEET_NAME", "Submissions"))
-            
-            # Append data
             row = [
                 data["name"],
                 data["email"],
@@ -48,10 +63,9 @@ class GoogleSheetService:
                 str(data["twitter_url"]),
                 data.get("submission_date", "")
             ]
-            
-            worksheet.append_row(row, value_input_option='RAW')
+           
+            self.worksheet.append_row(row, value_input_option='RAW')
             return True
-            
         except Exception as e:
-            print(f"Detailed error: {str(e)}")
-            raise Exception(f"Failed to submit: {str(e)}")
+            print(f"Submission error: {e}")
+            return False
