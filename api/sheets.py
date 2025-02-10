@@ -16,17 +16,15 @@ class GoogleSheetService:
                 'https://www.googleapis.com/auth/drive'
             ]
             
-            # Log all environment variables for debugging
-            logger.debug("Environment Variables:")
-            for key, value in os.environ.items():
-                logger.debug(f"{key}: {'[REDACTED]' if 'KEY' in key or 'SECRET' in key else value}")
+            # Ensure private key is properly formatted
+            private_key = os.getenv("GOOGLE_PRIVATE_KEY", "").replace('\\n', '\n').strip()
             
-            # Try to parse credentials from environment variables
+            # Create credentials dictionary
             credentials_dict = {
-                "type": os.getenv("GOOGLE_ACCOUNT_TYPE"),
+                "type": "service_account",
                 "project_id": os.getenv("GOOGLE_PROJECT_ID"),
                 "private_key_id": os.getenv("GOOGLE_PRIVATE_KEY_ID"),
-                "private_key": os.getenv("GOOGLE_PRIVATE_KEY", "").replace('\\n', '\n'),
+                "private_key": private_key,
                 "client_email": os.getenv("GOOGLE_CLIENT_EMAIL"),
                 "client_id": os.getenv("GOOGLE_CLIENT_ID"),
                 "auth_uri": os.getenv("GOOGLE_AUTH_URI"),
@@ -38,18 +36,11 @@ class GoogleSheetService:
             # Remove None values
             credentials_dict = {k: v for k, v in credentials_dict.items() if v is not None}
             
-            # Log the credentials dictionary (without sensitive info)
-            safe_creds = {k: '***' if 'key' in k.lower() else v for k, v in credentials_dict.items()}
-            logger.debug(f"Parsed Credentials: {safe_creds}")
+            # Validate private key
+            if not private_key:
+                raise ValueError("Private key is empty or not properly set")
             
-            # Validate required keys
-            required_keys = ["private_key", "client_email", "client_id"]
-            missing_keys = [key for key in required_keys if not credentials_dict.get(key)]
-            
-            if missing_keys:
-                raise ValueError(f"Missing required credentials: {missing_keys}")
-            
-            # Create credentials
+            # Attempt to create credentials
             creds = ServiceAccountCredentials.from_json_keyfile_dict(
                 credentials_dict, self.scope)
             
@@ -59,22 +50,18 @@ class GoogleSheetService:
             self.worksheet = None
         except Exception as e:
             logger.error(f"Error initializing GoogleSheetService: {e}")
+            logger.error(f"Credentials: {json.dumps({k: '***' if 'key' in k.lower() else v for k, v in credentials_dict.items()})}")
             logger.error(traceback.format_exc())
             raise
 
     def verify_connection(self):
         try:
-            logger.info("Verifying Google Sheets connection")
-            
             sheet_id = os.getenv("SHEET_ID")
             sheet_name = os.getenv("SHEET_NAME", "Submissions")
-            
-            logger.debug(f"Attempting to open sheet: {sheet_id}, Worksheet: {sheet_name}")
             
             spreadsheet = self.client.open_by_key(sheet_id)
             self.worksheet = spreadsheet.worksheet(sheet_name)
             
-            logger.info("Sheet connection verified successfully")
             return True
         except Exception as e:
             logger.error(f"Sheet connection verification failed: {e}")
@@ -83,8 +70,6 @@ class GoogleSheetService:
 
     def append_submission(self, data: dict):
         try:
-            logger.info("Attempting to append submission")
-            
             if not self.verify_connection():
                 logger.error("Cannot append - connection verification failed")
                 return False
@@ -98,10 +83,8 @@ class GoogleSheetService:
                 data.get("submission_date", "")
             ]
            
-            logger.debug(f"Appending row: {row}")
             self.worksheet.append_row(row, value_input_option='RAW')
             
-            logger.info("Submission appended successfully")
             return True
         except Exception as e:
             logger.error(f"Error appending submission: {e}")
