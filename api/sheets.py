@@ -1,57 +1,40 @@
 import os
-import logging
-import traceback
 import json
-import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-
-logger = logging.getLogger(__name__)
 
 class GoogleSheetService:
     def __init__(self):
-        logger.info("Initializing GoogleSheetService")
         try:
-            self.scope = [
-                'https://spreadsheets.google.com/feeds',
-                'https://www.googleapis.com/auth/drive'
-            ]
-            
-            # Ensure private key is properly formatted
-            private_key = os.getenv("GOOGLE_PRIVATE_KEY", "").replace('\\n', '\n').strip()
-            
-            # Create credentials dictionary
-            credentials_dict = {
-                "type": "service_account",
+            print("Initializing GoogleSheetService")
+
+            # Load credentials from environment variables
+            credentials_json = {
+                "type": os.getenv("GOOGLE_ACCOUNT_TYPE"),
                 "project_id": os.getenv("GOOGLE_PROJECT_ID"),
                 "private_key_id": os.getenv("GOOGLE_PRIVATE_KEY_ID"),
-                "private_key": private_key,
+                "private_key": os.getenv("GOOGLE_PRIVATE_KEY").replace('\\n', '\n'),  # Fix formatting issue
                 "client_email": os.getenv("GOOGLE_CLIENT_EMAIL"),
                 "client_id": os.getenv("GOOGLE_CLIENT_ID"),
-                "auth_uri": os.getenv("GOOGLE_AUTH_URI"),
-                "token_uri": os.getenv("GOOGLE_TOKEN_URI"),
-                "auth_provider_x509_cert_url": os.getenv("GOOGLE_AUTH_PROVIDER_CERT_URL"),
-                "client_x509_cert_url": os.getenv("GOOGLE_CLIENT_CERT_URL")
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{os.getenv('GOOGLE_CLIENT_EMAIL')}"
             }
-            
-            # Remove None values
-            credentials_dict = {k: v for k, v in credentials_dict.items() if v is not None}
-            
-            # Validate private key
-            if not private_key:
-                raise ValueError("Private key is empty or not properly set")
-            
-            # Attempt to create credentials
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(
-                credentials_dict, self.scope)
-            
-            self.client = gspread.authorize(creds)
-            logger.info("Google Sheets client created successfully")
-            
-            self.worksheet = None
+
+            # Check if private key is present
+            if not credentials_json["private_key"]:
+                raise ValueError("Private key is missing from environment variables!")
+
+            # Load credentials
+            self.creds = ServiceAccountCredentials.from_json_keyfile_dict(
+                credentials_json,
+                scopes=['https://www.googleapis.com/auth/spreadsheets']
+            )
+
+            print("GoogleSheetService initialized successfully!")
+
         except Exception as e:
-            logger.error(f"Error initializing GoogleSheetService: {e}")
-            logger.error(f"Credentials: {json.dumps({k: '***' if 'key' in k.lower() else v for k, v in credentials_dict.items()})}")
-            logger.error(traceback.format_exc())
+            print(f"Error initializing GoogleSheetService: {e}")
             raise
 
     def verify_connection(self):
