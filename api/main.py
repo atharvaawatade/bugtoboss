@@ -24,7 +24,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize sheets service at startup
+# Create service instance without initialization
 sheets_service = GoogleSheetService()
 
 @app.get("/")
@@ -36,10 +36,8 @@ async def submit_project(submission: ProjectSubmission):
     try:
         submission_data = submission.model_dump()
         submission_data["submission_date"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-       
-        if not sheets_service.append_submission(submission_data):
-            raise HTTPException(status_code=500, detail="Failed to submit to Google Sheets")
-           
+        
+        sheets_service.append_submission(submission_data)
         return {"status": "success", "message": "Project submitted successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
