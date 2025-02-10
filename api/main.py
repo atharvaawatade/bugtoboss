@@ -23,13 +23,32 @@ try:
 
     app = FastAPI(title="BugToBoss Submission API")
 
-    # Add static files mounting
-    static_dir = Path(__file__).parent.parent / "static"
-    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    # Add static files mounting with error handling
+    try:
+        static_dir = Path(__file__).parent.parent / "static"
+        if not static_dir.exists():
+            logger.warning(f"Static directory not found at {static_dir}, creating it")
+            static_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create an empty favicon.png if it doesn't exist
+            favicon_path = static_dir / "favicon.png"
+            if not favicon_path.exists():
+                with open(favicon_path, "wb") as f:
+                    f.write(b"")
+        
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+        logger.info(f"Successfully mounted static directory at {static_dir}")
+    except Exception as e:
+        logger.error(f"Error mounting static directory: {e}")
+        # Continue without static files if there's an error
 
     @app.get('/favicon.png')
     async def favicon():
-        return FileResponse(str(static_dir / 'favicon.png'))
+        static_dir = Path(__file__).parent.parent / "static"
+        favicon_path = static_dir / "favicon.png"
+        if favicon_path.exists():
+            return FileResponse(str(favicon_path))
+        return {"status": "no favicon"}
 
     app.add_middleware(
         CORSMiddleware,
